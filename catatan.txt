@@ -1,0 +1,11 @@
+https://www.youtube.com/watch?v=Ll_71n60vAM&t=18s
+
+- npm init -y
+init awal
+
+- npm i express mysql2 sequelize jsonwebtoken dotenv bcrypt cookie-parser cors express-fileupload
+
+- npm install moment --save // untuk waktu
+
+express buat expressjs, mysql2 buat connect ke mysql, sequelize berubah dr json ke mysql format, jsonwebtoken buat jwt, dotenv buat env, bcrypt buat encryp passw, cookie-parser buat simpan cookie, cors buat urusan cors 
+
