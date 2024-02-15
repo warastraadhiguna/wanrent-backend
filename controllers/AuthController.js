@@ -89,7 +89,6 @@ export const refreshToken = async (req, res) => {
         message: "No refresh token",
       });
     }
-
     const user = await UserModel.findOne({
       where: {
         refresh_token: refreshToken,

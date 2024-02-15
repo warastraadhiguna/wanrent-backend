@@ -30,6 +30,8 @@ const app = express();
 dotenv.config();
 
 app.use(cors({ credentials: true, origin: "http://localhost:3000" }));
+////utk server ubuntu
+// app.use(cors({ credentials: true, origin: "https://wanrent.warastra-adhiguna.online" }));
 // app.use(cors({ credentials: true, origin: "http://192.168.1.100:3000" }));
 
 //user wajib login dan hanya bisa dr alamat ini
