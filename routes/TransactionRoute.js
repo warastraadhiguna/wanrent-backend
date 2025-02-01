@@ -10,6 +10,7 @@ import {
   getDetailTransactionByCode,
   getTransactions,
   getDetailTransactionByRFID,
+  getDetailTransactionByPlate,
 } from "../controllers/TransactionController.js";
 import { VerifyToken } from "../middlewares/VerifyToken.js";
 
@@ -29,6 +30,7 @@ router.get(
   VerifyToken,
   getDetailTransactionByRFID
 );
+router.get("/transactions-by-plate", getDetailTransactionByPlate);
 router.post("/transactions", VerifyToken, addTransaction);
 router.patch("/transactions", VerifyToken, editTransaction);
 router.patch("/end-transactions", VerifyToken, endTransaction);

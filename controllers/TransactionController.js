@@ -788,6 +788,162 @@ export const getDetailTransactionByRFID = async (req, res) => {
   }
 };
 
+export const getDetailTransactionByPlate = async (req, res) => {
+  try {
+    const ownership = await OwnershipModel.findOne({
+      include: [
+        {
+          model: VehicleModel,
+          attributes: ["id", "detail_type"],
+          include: [
+            {
+              model: BrandModel,
+              attributes: ["id", "name"],
+            },
+            {
+              model: TypeModel,
+              attributes: ["id", "name"],
+            },
+          ],
+        },
+      ],
+      where: {
+        licence_plate: req.query.plate,
+      },
+    });
+    if (!ownership) return res.status(404).json({ message: "Unknown Plate" });
+
+    const transaction = await TransactionModel.findOne({
+      where: {
+        [Op.and]: [{ id_ownership: ownership.id }, { time_out: null }],
+      },
+      include: [
+        {
+          model: OwnershipModel,
+          attributes: [
+            "id",
+            "code",
+            "licence_plate",
+            [
+              Sequelize.literal(
+                `concat('${process.env.BASE_URL}',ownership.url)`
+              ),
+              "url",
+            ],
+          ],
+          include: [
+            {
+              model: SupplierModel,
+              attributes: ["id", "name", "phone"],
+            },
+            {
+              model: VehicleModel,
+              attributes: ["id", "detail_type"],
+              include: [
+                {
+                  model: BrandModel,
+                  attributes: ["id", "name"],
+                },
+                {
+                  model: TypeModel,
+                  attributes: ["id", "name"],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          model: CustomerModel,
+          attributes: [
+            "id",
+            "name",
+            "phone",
+            [
+              Sequelize.literal(
+                `concat('${process.env.BASE_URL}',customer.url)`
+              ),
+              "url",
+            ],
+          ],
+        },
+        {
+          model: UserModel,
+          attributes: ["id", "name"],
+        },
+      ],
+      attributes: [
+        "id",
+        "id_user",
+        "id_ownership",
+        "id_customer",
+        "time_in",
+        "time_out",
+        "note",
+        "total",
+        [Sequelize.literal("''"), "totalTimeString"],
+        [Sequelize.literal("''"), "totalCalculated"],
+        [Sequelize.literal("''"), "time_in_string"],
+        [Sequelize.literal("''"), "time_out_string"],
+      ],
+    });
+    if (!transaction)
+      return res.status(404).json({ message: "The data is not available" });
+
+    const prices = await PriceModel.findAll({
+      where: {
+        id_type: ownership.vehicle.type.dataValues.id,
+      },
+      attributes: ["id", "id_type", "time", "price"],
+      order: [["time", "desc"]],
+    });
+
+    transaction.dataValues.time_out = new Date();
+    const time_in = new Date(transaction.dataValues.time_in).getTime();
+    const time_out = new Date(transaction.dataValues.time_out).getTime();
+    const totalTime = Math.round((time_out - time_in) / 60000);
+    const duration = moment.duration(totalTime, "minutes");
+    transaction.dataValues.totalTimeString = `${duration.days()}h${duration.hours()}j${duration.minutes()}m`;
+    transaction.dataValues.time_in_string = moment(
+      transaction.dataValues.time_in
+    ).format("DD-MM-YY HH:mm");
+    transaction.dataValues.time_out_string = moment(
+      transaction.dataValues.time_out
+    ).format("DD-MM-YY HH:mm");
+
+    const upperLimit = 20; // minute, if more than upperLImit then totalTime + upperLimit
+    let totalTimeModuloAnHour = totalTime % 60;
+    let totalTimeCalculate =
+      totalTime < upperLimit
+        ? totalTime
+        : totalTimeModuloAnHour < upperLimit
+        ? totalTime - totalTimeModuloAnHour
+        : totalTime + (60 - totalTimeModuloAnHour);
+
+    let i = 0;
+    let price = null;
+    let totalPrice = 0;
+    let moduloResult = 0;
+    let restResult = 0;
+    while (true) {
+      price = prices[i];
+      restResult = Math.floor(totalTimeCalculate / price.time);
+      moduloResult = totalTimeCalculate % price.time;
+      totalPrice = totalPrice + restResult * price.price;
+      totalTimeCalculate = moduloResult;
+      i++;
+      if (i === prices.length || moduloResult === 0) break;
+    }
+    if (totalTimeCalculate > 0 && totalPrice === 0) {
+      totalPrice = totalPrice + prices[prices.length - 1].price;
+    }
+    transaction.dataValues.totalCalculated = totalPrice;
+
+    res.status(200).json({ data: transaction });
+  } catch (error) {
+    showErrorMessage(res, error);
+  }
+};
+
 export const addTransaction = async (req, res) => {
   try {
     const ownership = await OwnershipModel.findOne({
