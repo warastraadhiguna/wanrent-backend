@@ -7,6 +7,7 @@ import { showErrorMessage } from "../utils/Helper.js";
 import path from "path";
 import fs from "fs";
 import { Sequelize } from "sequelize";
+import db from "../configs/Database.js";
 
 OwnershipModel.belongsTo(SupplierModel, {
   foreignKey: "id_supplier",
@@ -51,6 +52,7 @@ export const getOwnerships = async (req, res) => {
         "code",
         "licence_plate",
         "note",
+        "target_value",
         "image",
         [
           Sequelize.literal(`concat('${process.env.BASE_URL}',ownerships.url)`),
@@ -63,6 +65,28 @@ export const getOwnerships = async (req, res) => {
       ],
     });
 
+    res.status(200).json({ data: response });
+  } catch (error) {
+    showErrorMessage(res, error);
+  }
+};
+
+export const getOwnershipTargetValues = async (req, res) => {
+  try {
+    const [response] = await db.query(`
+      SELECT
+        o.code,
+        o.licence_plate,
+        ROUND(SUM(p.total) / o.target_value * 100, 0) AS achieved_target
+      FROM ownerships o
+      INNER JOIN transactions t ON o.id = t.id_ownership
+      INNER JOIN payments p ON t.id = p.id_transaction
+      WHERE o.target_value > 0
+        AND t.time_out >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
+        AND t.time_out <= DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
+      GROUP BY o.code, o.licence_plate, o.target_value
+      ORDER BY ROUND(SUM(p.total) / o.target_value * 100, 0)
+    `);
     res.status(200).json({ data: response });
   } catch (error) {
     showErrorMessage(res, error);
@@ -82,6 +106,7 @@ export const getDetailOwnership = async (req, res) => {
         "code",
         "licence_plate",
         "note",
+        "target_value",
         "image",
         [
           Sequelize.literal(`concat('${process.env.BASE_URL}',ownerships.url)`),
@@ -105,7 +130,8 @@ export const addOwnership = async (req, res) => {
   if (req.files == null)
     return res.status(400).json({ message: "No file uploaded" });
 
-  const { id_supplier, id_vehicle, code, licence_plate, note } = req.body;
+  const { id_supplier, id_vehicle, code, licence_plate, note, target_value } =
+    req.body;
   const file = req.files.file;
   const fileSize = file.data.length;
   const ext = path.extname(file.name);
@@ -131,6 +157,7 @@ export const addOwnership = async (req, res) => {
         note,
         image: fileName,
         url: url,
+        target_value,
         id_user: req.userId,
       });
 
@@ -182,7 +209,8 @@ export const editOwnership = async (req, res) => {
     });
   }
   try {
-    const { id_supplier, id_vehicle, code, licence_plate, note } = req.body;
+    const { id_supplier, id_vehicle, code, licence_plate, note, target_value } =
+      req.body;
     const url = `images/${fileName}`;
     await OwnershipModel.update(
       {
@@ -191,6 +219,7 @@ export const editOwnership = async (req, res) => {
         code,
         licence_plate,
         note,
+        target_value,
         image: fileName,
         url: url,
         id_user: req.userId,

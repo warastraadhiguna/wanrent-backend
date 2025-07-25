@@ -171,7 +171,7 @@ export const getActiveTransactions = async (req, res) => {
         [
           Sequelize.cast(
             Sequelize.fn("sum", Sequelize.col("payments.total")),
-            "int"
+            "SIGNED"
           ),
           "total_payments",
         ],
@@ -186,7 +186,7 @@ export const getActiveTransactions = async (req, res) => {
         Sequelize.where(
           Sequelize.cast(
             Sequelize.fn("sum", Sequelize.col("payments.total")),
-            "int"
+            "SIGNED"
           ),
           "<",
           Sequelize.col("total")
@@ -194,7 +194,7 @@ export const getActiveTransactions = async (req, res) => {
         Sequelize.where(
           Sequelize.cast(
             Sequelize.fn("sum", Sequelize.col("payments.total")),
-            "int"
+            "SIGNED"
           ),
           "is",
           null

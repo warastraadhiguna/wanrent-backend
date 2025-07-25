@@ -41,6 +41,10 @@ const OwnershipModel = db.define(
       type: Sequelize.TEXT,
       allowNull: true,
     },
+    target_value: {
+      type: Sequelize.INTEGER(11),
+      allowNull: false,
+    },
   },
   {
     //timestamps: false,
