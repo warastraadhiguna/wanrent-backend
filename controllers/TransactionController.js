@@ -349,7 +349,7 @@ export const getDetailActiveTransaction = async (req, res) => {
         [
           Sequelize.cast(
             Sequelize.fn("sum", Sequelize.col("payments.total")),
-            "int"
+            "SIGNED"
           ),
           "total_payments",
         ],
@@ -364,7 +364,7 @@ export const getDetailActiveTransaction = async (req, res) => {
         Sequelize.where(
           Sequelize.cast(
             Sequelize.fn("sum", Sequelize.col("payments.total")),
-            "int"
+            "SIGNED"
           ),
           "<",
           Sequelize.col("total")
@@ -372,7 +372,7 @@ export const getDetailActiveTransaction = async (req, res) => {
         Sequelize.where(
           Sequelize.cast(
             Sequelize.fn("sum", Sequelize.col("payments.total")),
-            "int"
+            "SIGNED"
           ),
           "is",
           null
@@ -464,7 +464,7 @@ export const getDetailTransaction = async (req, res) => {
         [
           Sequelize.cast(
             Sequelize.fn("sum", Sequelize.col("payments.total")),
-            "int"
+            "SIGNED"
           ),
           "total_payments",
         ],
@@ -1043,7 +1043,6 @@ export const endTransaction = async (req, res) => {
 
   try {
     const { id, total, downPayment } = req.body;
-    console.log("id= " + id);
     const transactionExist = await TransactionModel.findOne({
       where: {
         [Op.and]: [{ id }, { time_out: null }],
