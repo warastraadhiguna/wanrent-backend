@@ -77,17 +77,17 @@ export const getOwnershipTargetValues = async (req, res) => {
       SELECT
         o.code,
         o.licence_plate,
-        ROUND(SUM(ifnull(p.total,0)) / o.target_value * 100, 0) AS achieved_target,
+        IFNULL(ROUND(SUM(p.total) / o.target_value * 100, 0),0) AS achieved_target,
   EXISTS (
     SELECT 1 FROM transactions t2
     WHERE t2.id_ownership = o.id AND t2.time_out IS NULL
   ) AS is_rented
       FROM ownerships o
-      INNER JOIN transactions t ON o.id = t.id_ownership
-      INNER JOIN payments p ON t.id = p.id_transaction
-      WHERE o.target_value > 0
+      LEFT JOIN transactions t ON o.id = t.id_ownership 
         AND t.time_out >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
         AND t.time_out <= DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
+      LEFT JOIN payments p ON t.id = p.id_transaction
+      WHERE o.target_value > 0
       GROUP BY o.code, o.licence_plate, o.target_value
       ORDER BY ROUND(SUM(p.total) / o.target_value * 100, 0)
     `);
