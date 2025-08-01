@@ -77,7 +77,7 @@ export const getOwnershipTargetValues = async (req, res) => {
       SELECT
         o.code,
         o.licence_plate,
-        IFNULL(ROUND(SUM(p.total) / o.target_value * 100, 0),1) AS achieved_target,
+        IFNULL(ROUND(SUM(p.total) / o.target_value * 100, 1),0) AS achieved_target,
   EXISTS (
     SELECT 1 FROM transactions t2
     WHERE t2.id_ownership = o.id AND t2.time_out IS NULL
