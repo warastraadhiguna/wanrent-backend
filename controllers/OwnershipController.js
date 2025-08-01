@@ -89,7 +89,7 @@ export const getOwnershipTargetValues = async (req, res) => {
       LEFT JOIN payments p ON t.id = p.id_transaction
       WHERE o.target_value > 0
       GROUP BY o.code, o.licence_plate, o.target_value
-      ORDER BY ROUND(SUM(p.total) / o.target_value * 100, 0)
+      ORDER BY IFNULL(ROUND(SUM(p.total) / o.target_value * 100, 1),0)
     `);
     res.status(200).json({ data: response });
   } catch (error) {
