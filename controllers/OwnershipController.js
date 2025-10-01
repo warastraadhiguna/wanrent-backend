@@ -86,7 +86,7 @@ export const getOwnershipTargetValues = async (req, res) => {
       LEFT JOIN transactions t ON o.id = t.id_ownership 
         AND t.time_out >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
         AND t.time_out <= DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
-      LEFT JOIN payments p ON t.id = p.id_transaction
+      LEFT JOIN payments p ON t.id = p.id_transaction AND p.createdAt >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
       WHERE o.target_value > 0
       GROUP BY o.code, o.licence_plate, o.target_value
       ORDER BY IFNULL(ROUND(SUM(p.total) / o.target_value * 100, 1),0)
