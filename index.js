@@ -28,25 +28,36 @@ import FileUpload from "express-fileupload";
 
 const app = express();
 dotenv.config();
+app.set("trust proxy", 1);
 
-const allowedOrigins = [
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-  "http://192.168.1.5:3000",
-  "https://wanrent.gelorasports.com",
-];
+const allowedOrigins = (
+  process.env.CORS_ORIGINS ||
+  [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://192.168.1.5:3000",
+    "https://wanrent.gelorasports.com",
+  ].join(",")
+)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-app.use(
-  cors({
-    credentials: true,
-    origin: function (origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error("Not allowed by CORS"));
-    },
-  }),
-);
+const corsOptions = {
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
+  optionsSuccessStatus: 204,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 //user wajib login dan hanya bisa dr alamat ini
 app.use(cookieParser());
