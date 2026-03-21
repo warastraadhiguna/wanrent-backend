@@ -29,15 +29,24 @@ import FileUpload from "express-fileupload";
 const app = express();
 dotenv.config();
 
-// app.use(cors({ credentials: true, origin: "http://localhost:3000" }));
-////utk server ubuntu
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://192.168.1.5:3000",
+  "https://wanrent.gelorasports.com",
+];
+
 app.use(
   cors({
     credentials: true,
-    origin: "https://wanrent.gelorasports.com",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("Not allowed by CORS"));
+    },
   }),
 );
-// app.use(cors({ credentials: true, origin: "http://192.168.1.5:3000" }));
 
 //user wajib login dan hanya bisa dr alamat ini
 app.use(cookieParser());
