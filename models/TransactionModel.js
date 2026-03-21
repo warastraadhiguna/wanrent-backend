@@ -21,6 +21,12 @@ const TransactionModel = db.define(
       references: "customers",
       referencesKey: "id",
     },
+    id_type: {
+      type: DataTypes.TINYINT.UNSIGNED,
+      allowNull: true,
+      references: "types",
+      referencesKey: "id",
+    },
     time_in: {
       type: DataTypes.DATE,
       allowNull: false,

@@ -24,6 +24,9 @@ TransactionModel.belongsTo(CustomerModel, {
 TransactionModel.belongsTo(UserModel, {
   foreignKey: "id_user",
 });
+TransactionModel.belongsTo(TypeModel, {
+  foreignKey: "id_type",
+});
 
 OwnershipModel.belongsTo(SupplierModel, {
   foreignKey: "id_supplier",
@@ -38,6 +41,15 @@ VehicleModel.belongsTo(BrandModel, {
 VehicleModel.belongsTo(TypeModel, {
   foreignKey: "id_type",
 });
+
+const normalizeTransactionTypeId = (idType) =>
+  idType === "" || idType === null ? null : idType;
+
+const hasTransactionTypeId = (body) =>
+  Object.prototype.hasOwnProperty.call(body, "id_type");
+
+const getEffectiveTransactionTypeId = (transaction, ownership) =>
+  transaction.dataValues.id_type ?? ownership.vehicle.type.dataValues.id;
 
 export const getTransactions = async (req, res) => {
   try {
@@ -72,12 +84,17 @@ export const getTransactions = async (req, res) => {
           model: UserModel,
           attributes: ["id", "name"],
         },
+        {
+          model: TypeModel,
+          attributes: ["id", "name"],
+        },
       ],
       attributes: [
         "id",
         "id_user",
         "id_ownership",
         "id_customer",
+        "id_type",
         "time_in",
         "time_out",
         "note",
@@ -158,12 +175,17 @@ export const getActiveTransactions = async (req, res) => {
           model: UserModel,
           attributes: ["id", "name"],
         },
+        {
+          model: TypeModel,
+          attributes: ["id", "name"],
+        },
       ],
       attributes: [
         "id",
         "id_user",
         "id_ownership",
         "id_customer",
+        "id_type",
         "time_in",
         "time_out",
         "note",
@@ -342,6 +364,7 @@ export const getDetailActiveTransaction = async (req, res) => {
         "id_user",
         "id_ownership",
         "id_customer",
+        "id_type",
         "time_in",
         "time_out",
         "note",
@@ -457,6 +480,7 @@ export const getDetailTransaction = async (req, res) => {
         "id_user",
         "id_ownership",
         "id_customer",
+        "id_type",
         "time_in",
         "time_out",
         "note",
@@ -572,6 +596,7 @@ export const getDetailTransactionByCode = async (req, res) => {
         "id_user",
         "id_ownership",
         "id_customer",
+        "id_type",
         "time_in",
         "time_out",
         [Sequelize.literal("''"), "totalTimeString"],
@@ -585,7 +610,7 @@ export const getDetailTransactionByCode = async (req, res) => {
 
     const prices = await PriceModel.findAll({
       where: {
-        id_type: ownership.vehicle.type.dataValues.id,
+        id_type: getEffectiveTransactionTypeId(transaction, ownership),
       },
       attributes: ["id", "id_type", "time", "price"],
       order: [["time", "desc"]],
@@ -720,6 +745,7 @@ export const getDetailTransactionByRFID = async (req, res) => {
         "id_user",
         "id_ownership",
         "id_customer",
+        "id_type",
         "time_in",
         "time_out",
         "note",
@@ -735,7 +761,7 @@ export const getDetailTransactionByRFID = async (req, res) => {
 
     const prices = await PriceModel.findAll({
       where: {
-        id_type: ownership.vehicle.type.dataValues.id,
+        id_type: getEffectiveTransactionTypeId(transaction, ownership),
       },
       attributes: ["id", "id_type", "time", "price"],
       order: [["time", "desc"]],
@@ -876,6 +902,7 @@ export const getDetailTransactionByPlate = async (req, res) => {
         "id_user",
         "id_ownership",
         "id_customer",
+        "id_type",
         "time_in",
         "time_out",
         "note",
@@ -891,7 +918,7 @@ export const getDetailTransactionByPlate = async (req, res) => {
 
     const prices = await PriceModel.findAll({
       where: {
-        id_type: ownership.vehicle.type.dataValues.id,
+        id_type: getEffectiveTransactionTypeId(transaction, ownership),
       },
       attributes: ["id", "id_type", "time", "price"],
       order: [["time", "desc"]],
@@ -964,6 +991,9 @@ export const addTransaction = async (req, res) => {
     const response = await TransactionModel.create({
       id_ownership: ownership.id,
       id_user: req.userId,
+      ...(hasTransactionTypeId(req.body)
+        ? { id_type: normalizeTransactionTypeId(req.body.id_type) }
+        : {}),
     });
 
     res.status(200).json({ data: response });
@@ -975,6 +1005,8 @@ export const addTransaction = async (req, res) => {
 export const editTransaction = async (req, res) => {
   try {
     const { id_customer, note, code } = req.body;
+    const normalizedIdType = normalizeTransactionTypeId(req.body.id_type);
+    const shouldUpdateIdType = hasTransactionTypeId(req.body);
 
     if (code) {
       if (req.username.toLowerCase() !== "superadmin") {
@@ -1005,6 +1037,7 @@ export const editTransaction = async (req, res) => {
         {
           id_ownership: ownership.id,
           id_user: req.userId,
+          ...(shouldUpdateIdType ? { id_type: normalizedIdType } : {}),
         },
         {
           where: {
@@ -1015,16 +1048,12 @@ export const editTransaction = async (req, res) => {
 
       res.status(200).json({ message: "Vehicle changed" });
     } else {
-      const editedData = id_customer
-        ? {
-            id_customer,
-            note,
-            id_user: req.userId,
-          }
-        : {
-            note,
-            id_user: req.userId,
-          };
+      const editedData = {
+        note,
+        id_user: req.userId,
+        ...(id_customer ? { id_customer } : {}),
+        ...(shouldUpdateIdType ? { id_type: normalizedIdType } : {}),
+      };
 
       await TransactionModel.update(editedData, {
         where: {
