@@ -34,7 +34,7 @@ dotenv.config();
 app.use(
   cors({
     credentials: true,
-    origin: "https://wanrent.warastra-adhiguna.online",
+    origin: "https://wanrent.gelorasports.com",
   }),
 );
 // app.use(cors({ credentials: true, origin: "http://192.168.1.5:3000" }));
