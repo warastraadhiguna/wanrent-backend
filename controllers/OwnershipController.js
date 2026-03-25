@@ -77,19 +77,40 @@ export const getOwnershipTargetValues = async (req, res) => {
       SELECT
         o.code,
         o.licence_plate,
-        IFNULL(ROUND(SUM(p.total) / o.target_value * 100, 1),0) AS achieved_target,
-  EXISTS (
-    SELECT 1 FROM transactions t2
-    WHERE t2.id_ownership = o.id AND t2.time_out IS NULL
-  ) AS is_rented
+        IFNULL(ROUND(actual_transactions.actual_total / o.target_value * 100, 1), 0) AS actual_value,
+        IFNULL(ROUND(expected_transactions.expected_total / o.target_value * 100, 1), 0) AS expected_value,
+        EXISTS (
+          SELECT 1
+          FROM transactions t2
+          WHERE t2.id_ownership = o.id AND t2.time_out IS NULL
+        ) AS is_rented
       FROM ownerships o
-      LEFT JOIN transactions t ON o.id = t.id_ownership 
-        AND t.time_out >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
-        AND t.time_out <= DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
-      LEFT JOIN payments p ON t.id = p.id_transaction AND p.createdAt >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
+      LEFT JOIN (
+        SELECT
+          t.id_ownership,
+          SUM(p.total) AS actual_total
+        FROM transactions t
+        INNER JOIN payments p ON t.id = p.id_transaction
+        WHERE t.time_out >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
+          AND t.time_out <= DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
+          AND p.createdAt >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
+          AND p.createdAt <= DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
+        GROUP BY t.id_ownership
+      ) actual_transactions ON actual_transactions.id_ownership = o.id
+      LEFT JOIN (
+        SELECT
+          t.id_ownership,
+          SUM(t.total) AS expected_total
+        FROM transactions t
+        WHERE t.time_out >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
+          AND t.time_out <= DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
+        GROUP BY t.id_ownership
+      ) expected_transactions ON expected_transactions.id_ownership = o.id
       WHERE o.target_value > 0
-      GROUP BY o.code, o.licence_plate, o.target_value
-      ORDER BY IFNULL(ROUND(SUM(p.total) / o.target_value * 100, 1),0)
+      ORDER BY
+        IFNULL(ROUND(actual_transactions.actual_total / o.target_value * 100, 1), 0),
+        IFNULL(ROUND(expected_transactions.expected_total / o.target_value * 100, 1), 0),
+        o.code
     `);
     res.status(200).json({ data: response });
   } catch (error) {
