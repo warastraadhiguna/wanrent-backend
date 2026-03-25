@@ -100,8 +100,22 @@ export const getOwnershipTargetValues = async (req, res) => {
       LEFT JOIN (
         SELECT
           t.id_ownership,
-          SUM(t.total) AS expected_total
+          SUM(
+            GREATEST(
+              t.total - IFNULL(outside_payments.outside_total, 0),
+              0
+            )
+          ) AS expected_total
         FROM transactions t
+        LEFT JOIN (
+          SELECT
+            p.id_transaction,
+            SUM(p.total) AS outside_total
+          FROM payments p
+          WHERE p.createdAt < DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
+            OR p.createdAt > DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
+          GROUP BY p.id_transaction
+        ) outside_payments ON outside_payments.id_transaction = t.id
         WHERE t.time_out >= DATE_FORMAT(CURDATE(), '%Y-%m-01 00:00:00')
           AND t.time_out <= DATE_FORMAT(LAST_DAY(CURDATE()), '%Y-%m-%d 23:59:59')
         GROUP BY t.id_ownership
