@@ -24,7 +24,6 @@ import orderRouter from "./routes/OrderRoute.js";
 import reportRouter from "./routes/ReportRoute.js";
 
 import cookieParser from "cookie-parser";
-import FileUpload from "express-fileupload";
 
 const app = express();
 dotenv.config();
@@ -63,7 +62,6 @@ app.options("*", cors(corsOptions));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.static("public")); // spy public bisa diakses
-app.use(FileUpload());
 app.use(ownershipRouter);
 app.use(priceRouter);
 app.use(transactionRouter);

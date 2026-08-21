@@ -10,17 +10,22 @@ export const VerifyToken = async (req, res, next) => {
       });
     }
 
-    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-      if (err) {
-        return res.status(403).json({
-          message: "Authentification failed",
-        });
-      }
+    jwt.verify(
+      token,
+      process.env.ACCESS_TOKEN_SECRET,
+      { algorithms: ["HS256"] },
+      (err, decoded) => {
+        if (err) {
+          return res.status(403).json({
+            message: "Authentification failed",
+          });
+        }
 
-      req.userId = decoded.userId;
-      req.username = decoded.username;
-      next();
-    });
+        req.userId = decoded.userId;
+        req.username = decoded.username;
+        next();
+      }
+    );
   } catch (error) {
     res.status(401).json({
       message: "Authentication failed",

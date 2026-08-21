@@ -1,8 +1,11 @@
 import SupplierModel from "../models/SupplierModel.js";
-import path from "path";
-import fs from "fs";
 import { showErrorMessage } from "../utils/Helper.js";
 import { Sequelize, Op } from "sequelize";
+import {
+  handleImageError,
+  removeImageSafely,
+  saveImage,
+} from "../utils/ImageStorage.js";
 
 export const getSuppliers = async (req, res) => {
   try {
@@ -53,40 +56,26 @@ export const addSupplier = async (req, res) => {
     });
   }
 
-  if (req.files == null)
+  if (!req.file)
     return res.status(400).json({ message: "No file uploaded" });
 
   const { name, phone } = req.body;
-  const file = req.files.file;
-  const fileSize = file.data.length;
-  const ext = path.extname(file.name);
-  const fileName = file.md5 + ext;
-  const url = `images/${fileName}`;
-  const allowedType = ["image/png", "image/jpeg", "image/jpg"];
-  if (!allowedType.includes(file.mimetype))
-    return res.status(422).json({ message: "Invalid file type" });
+  let storedImage;
+  try {
+    storedImage = await saveImage(req.file);
+    await SupplierModel.create({
+      name,
+      phone,
+      image: storedImage.fileName,
+      url: storedImage.url,
+      id_user: req.userId,
+    });
 
-  if (fileSize > 5000000)
-    return res.status(422).json({ message: "File size is too big > 5 MB" });
-
-  file.mv(`./public/images/${fileName}`, async (err) => {
-    if (err) {
-      return res.status(500).json({ message: "Error uploading file" });
-    }
-    try {
-      await SupplierModel.create({
-        name,
-        phone,
-        image: fileName,
-        url: url,
-        id_user: req.userId,
-      });
-
-      res.status(200).json({ message: "Supplier created successfully" });
-    } catch (error) {
-      showErrorMessage(res, error);
-    }
-  });
+    res.status(200).json({ message: "Supplier created successfully" });
+  } catch (error) {
+    if (storedImage) await removeImageSafely(storedImage.fileName);
+    if (!handleImageError(res, error)) showErrorMessage(res, error);
+  }
 };
 
 export const editSupplier = async (req, res) => {
@@ -102,42 +91,18 @@ export const editSupplier = async (req, res) => {
     },
   });
   if (!supplier) return res.status(404).json({ message: "Supplier not found" });
-  let fileName = "";
-  if (req.files === null) {
-    fileName = supplier.image;
-  } else {
-    const file = req.files.file;
-    const fileSize = file.data.length;
-    const ext = path.extname(file.name);
-    fileName = file.md5 + ext;
-    const allowedType = ["image/png", "image/jpeg", "image/jpg"];
-    if (!allowedType.includes(file.mimetype))
-      return res.status(422).json({ message: "Invalid file type" });
-
-    if (fileSize > 5000000)
-      return res.status(422).json({ message: "File size is too big > 5 MB" });
-
-    const filePath = `./public/images/${supplier.image}`;
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    file.mv(`./public/images/${fileName}`, (err) => {
-      if (err) {
-        return res.status(500).json({ message: "Error uploading file" });
-      }
-    });
-  }
-
+  let storedImage;
   try {
-    const url = `images/${fileName}`;
+    storedImage = await saveImage(req.file);
 
     await SupplierModel.update(
       {
         name: req.body.name,
         phone: req.body.phone,
-        image: fileName,
-        url: url,
+        ...(storedImage && {
+          image: storedImage.fileName,
+          url: storedImage.url,
+        }),
         id_user: req.userId,
       },
       {
@@ -146,9 +111,11 @@ export const editSupplier = async (req, res) => {
         },
       }
     );
+    if (storedImage) await removeImageSafely(supplier.image);
     res.status(200).json({ message: "Supplier updated" });
   } catch (error) {
-    showErrorMessage(res, error);
+    if (storedImage) await removeImageSafely(storedImage.fileName);
+    if (!handleImageError(res, error)) showErrorMessage(res, error);
   }
 };
 
@@ -167,15 +134,12 @@ export const deleteSupplier = async (req, res) => {
 
   if (!supplier) return res.status(404).json({ message: "Supplier not found" });
   try {
-    const filePath = `./public/images/${supplier.image}`;
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
     await SupplierModel.destroy({
       where: {
         id: req.params.id,
       },
     });
+    await removeImageSafely(supplier.image);
     res.status(200).json({ message: "Delete data success.." });
   } catch (error) {
     showErrorMessage(res, error);

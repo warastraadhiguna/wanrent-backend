@@ -4,8 +4,11 @@ import VehicleModel from "../models/VehicleModel.js";
 import BrandModel from "../models/BrandModel.js";
 import TypeModel from "../models/TypeModel.js";
 import { showErrorMessage } from "../utils/Helper.js";
-import path from "path";
-import fs from "fs";
+import {
+  handleImageError,
+  removeImageSafely,
+  saveImage,
+} from "../utils/ImageStorage.js";
 import { Sequelize } from "sequelize";
 import db from "../configs/Database.js";
 
@@ -162,45 +165,31 @@ export const addOwnership = async (req, res) => {
     });
   }
 
-  if (req.files == null)
+  if (!req.file)
     return res.status(400).json({ message: "No file uploaded" });
 
   const { id_supplier, id_vehicle, code, licence_plate, note, target_value } =
     req.body;
-  const file = req.files.file;
-  const fileSize = file.data.length;
-  const ext = path.extname(file.name);
-  const fileName = file.md5 + ext;
-  const url = `images/${fileName}`;
-  const allowedType = ["image/png", "image/jpeg", "image/jpg"];
-  if (!allowedType.includes(file.mimetype))
-    return res.status(422).json({ message: "Invalid file type" });
+  let storedImage;
+  try {
+    storedImage = await saveImage(req.file);
+    await OwnershipModel.create({
+      id_supplier,
+      id_vehicle,
+      code,
+      licence_plate,
+      note,
+      image: storedImage.fileName,
+      url: storedImage.url,
+      target_value,
+      id_user: req.userId,
+    });
 
-  if (fileSize > 5000000)
-    return res.status(422).json({ message: "File size is too big > 5 MB" });
-
-  file.mv(`./public/images/${fileName}`, async (err) => {
-    if (err) {
-      return res.status(500).json({ message: "Error uploading file" });
-    }
-    try {
-      await OwnershipModel.create({
-        id_supplier,
-        id_vehicle,
-        code,
-        licence_plate,
-        note,
-        image: fileName,
-        url: url,
-        target_value,
-        id_user: req.userId,
-      });
-
-      res.status(200).json({ message: "Ownership created successfully" });
-    } catch (error) {
-      showErrorMessage(res, error);
-    }
-  });
+    res.status(200).json({ message: "Ownership created successfully" });
+  } catch (error) {
+    if (storedImage) await removeImageSafely(storedImage.fileName);
+    if (!handleImageError(res, error)) showErrorMessage(res, error);
+  }
 };
 
 export const editOwnership = async (req, res) => {
@@ -217,36 +206,11 @@ export const editOwnership = async (req, res) => {
   });
 
   if (!ownership) return res.status(404).json({ message: "Data not found" });
-  let fileName = "";
-  if (req.files === null) {
-    fileName = ownership.image;
-  } else {
-    const file = req.files.file;
-    const fileSize = file.data.length;
-    const ext = path.extname(file.name);
-    fileName = file.md5 + ext;
-    const allowedType = ["image/png", "image/jpeg", "image/jpg"];
-    if (!allowedType.includes(file.mimetype))
-      return res.status(422).json({ message: "Invalid file type" });
-
-    if (fileSize > 5000000)
-      return res.status(422).json({ message: "File size is too big > 5 MB" });
-
-    const filePath = `./public/images/${ownership.image}`;
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    file.mv(`./public/images/${fileName}`, (err) => {
-      if (err) {
-        return res.status(500).json({ message: "Error uploading file" });
-      }
-    });
-  }
+  let storedImage;
   try {
     const { id_supplier, id_vehicle, code, licence_plate, note, target_value } =
       req.body;
-    const url = `images/${fileName}`;
+    storedImage = await saveImage(req.file);
     await OwnershipModel.update(
       {
         id_supplier,
@@ -255,8 +219,10 @@ export const editOwnership = async (req, res) => {
         licence_plate,
         note,
         target_value,
-        image: fileName,
-        url: url,
+        ...(storedImage && {
+          image: storedImage.fileName,
+          url: storedImage.url,
+        }),
         id_user: req.userId,
       },
       {
@@ -265,9 +231,11 @@ export const editOwnership = async (req, res) => {
         },
       }
     );
+    if (storedImage) await removeImageSafely(ownership.image);
     res.status(200).json({ message: "Ownership updated" });
   } catch (error) {
-    showErrorMessage(res, error);
+    if (storedImage) await removeImageSafely(storedImage.fileName);
+    if (!handleImageError(res, error)) showErrorMessage(res, error);
   }
 };
 
@@ -286,16 +254,12 @@ export const deleteOwnership = async (req, res) => {
 
   if (!ownership) return res.status(404).json({ message: "Data not found" });
   try {
-    const filePath = `./public/images/${ownership.image}`;
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
     await OwnershipModel.destroy({
       where: {
         id: req.params.id,
       },
     });
+    await removeImageSafely(ownership.image);
     res.status(200).json({ message: "Delete data success.." });
   } catch (error) {
     showErrorMessage(res, error);

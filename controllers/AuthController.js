@@ -28,6 +28,7 @@ export const login = async (req, res) => {
       { userId: user.id, name, username },
       process.env.ACCESS_TOKEN_SECRET,
       {
+        algorithm: "HS256",
         expiresIn: "20s",
       }
     );
@@ -35,6 +36,7 @@ export const login = async (req, res) => {
       { userId: user.id, name, username },
       process.env.REFRESH_TOKEN_SECRET,
       {
+        algorithm: "HS256",
         expiresIn: "1d",
       }
     );
@@ -104,6 +106,7 @@ export const refreshToken = async (req, res) => {
     jwt.verify(
       refreshToken,
       process.env.REFRESH_TOKEN_SECRET,
+      { algorithms: ["HS256"] },
       (err, decoded) => {
         if (err) {
           return res.sendStatus(403);
@@ -112,6 +115,7 @@ export const refreshToken = async (req, res) => {
           { userId: user.id, name: user.name, username: user.username },
           process.env.ACCESS_TOKEN_SECRET,
           {
+            algorithm: "HS256",
             expiresIn: "15s",
           }
         );
