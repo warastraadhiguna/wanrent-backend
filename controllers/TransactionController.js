@@ -692,7 +692,22 @@ export const getDetailTransactionByRFID = async (req, res) => {
         },
       ],
       where: {
-        [Op.or]: [{ code: req.params.rfid }, { note: req.params.rfid }],
+        [Op.or]: [
+          { code: req.params.rfid },
+          Sequelize.where(
+            Sequelize.fn(
+              "FIND_IN_SET",
+              req.params.rfid,
+              Sequelize.fn(
+                "REPLACE",
+                Sequelize.col("ownerships.note"),
+                ";",
+                ","
+              )
+            ),
+            { [Op.gt]: 0 }
+          ),
+        ],
       },
     });
     if (!ownership) return res.status(404).json({ message: "Unknown Code" });
