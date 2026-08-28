@@ -528,7 +528,22 @@ export const getDetailTransactionByCode = async (req, res) => {
         },
       ],
       where: {
-        [Op.or]: [{ code: req.params.code }, { note: req.params.code }],
+        [Op.or]: [
+          { code: req.params.code },
+          Sequelize.where(
+            Sequelize.fn(
+              "FIND_IN_SET",
+              req.params.code,
+              Sequelize.fn(
+                "REPLACE",
+                Sequelize.col("ownerships.note"),
+                ";",
+                ","
+              )
+            ),
+            { [Op.gt]: 0 }
+          ),
+        ],
       },
     });
     if (!ownership) return res.status(404).json({ message: "Unknown Code" });
