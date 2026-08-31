@@ -1005,7 +1005,22 @@ export const addTransaction = async (req, res) => {
   try {
     const ownership = await OwnershipModel.findOne({
       where: {
-        [Op.or]: [{ code: req.body.code }, { note: req.body.code }],
+        [Op.or]: [
+          { code: req.body.code },
+          Sequelize.where(
+            Sequelize.fn(
+              "FIND_IN_SET",
+              req.body.code,
+              Sequelize.fn(
+                "REPLACE",
+                Sequelize.col("ownerships.note"),
+                ";",
+                ","
+              )
+            ),
+            { [Op.gt]: 0 }
+          ),
+        ],
       },
     });
     if (!ownership) return res.status(404).json({ message: "Unknown Code" });
